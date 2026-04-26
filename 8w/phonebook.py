@@ -26,7 +26,7 @@ def main():
             result=call_function(
                 cur,
                 "SELECT * FROM search_contacts(%s)",
-                (pattern)
+                (pattern,)
             )
             print(result)
 
