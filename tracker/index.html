@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Трекер Дисциплины</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Трекер Дисциплины</h1>
+        <p class="date" id="currentDate"></p>
+
+        <div class="task-input">
+            <input type="text" id="taskInput" placeholder="Введи задачу на сегодня...">
+            <button id="addTaskBtn">Добавить</button>
+            <button id="clearBtn">Очистить всё</button>
+        </div>
+        <div class="filters">
+            <button id="filterAll">Все</button>
+            <button id="filterActive">Активные</button>
+            <button id="filterCompleted">Завершённые</button>
+        </div>
+
+        <div class="tasks-list">
+            <h2>Задачи на сегодня:</h2>
+            <ul id="tasksList"></ul>
+        </div>
+
+        <div class="stats">
+            <p>Выполнено задач: <span id="completedCount">0</span></p>
+            <p>Всего задач: <span id="totalCount">0</span></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
