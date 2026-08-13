@@ -34,6 +34,15 @@
 
             <!-- НОВОЕ: Контейнер для панелей -->
             <div class="sidebar-content">
+                <div class="theme-toggle-container">
+                    <button id="themeToggleBtn" class="theme-toggle-btn">
+                        <span class="theme-icon moon">🌙</span>
+                        <span class="theme-toggle-track">
+                            <span class="theme-toggle-thumb"></span>
+                        </span>
+                        <span class="theme-icon sun">☀️</span>
+                    </button>
+                </div>
                 <!-- Панель задач (календарь + статистика) -->
                 <div class="sidebar-panel active" id="sidebar-tasks-panel">
                     <div class="calendar-section">
@@ -65,6 +74,18 @@
                             <span class="stat-label">Всего задач</span>
                             <span class="stat-value" id="totalCount">0</span>
                         </div>
+                        <button class="export-btn" id="exportBtn">
+                            💾 Экспорт данных
+                        </button>
+                        <input type="file" id="importFileInp" accept=".json" style="display: none;">
+
+                        <!-- Красивая кнопка, которая будет вызывать этот инпут -->
+                        <button class="import-btn" id="importBtn">
+                            📂 Импорт данных
+                        </button>
+                        <button class="clear-history-btn" id="clearHistoryBtn">
+                            🗑️ Очистить историю
+                        </button>
                     </div>
                 </div>
 

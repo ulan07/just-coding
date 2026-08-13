@@ -27,6 +27,20 @@ const contentTasksPanel = document.getElementById('tasks-content-panel');
 const contentStatsPanel = document.getElementById('stats-content-panel');
 const viewFullStatsBtn = document.getElementById('viewFullStatsBtn');
 const backToTasksBtn = document.getElementById('backToTasksBtn');
+const sidebarWeekTotal = document.getElementById('sidebarWeekTotal');
+const sidebarWeekAvg = document.getElementById('sidebarWeekAvg');
+const sidebarBestDay = document.getElementById('sidebarBestDay');
+const statsWeekTotal = document.getElementById('statsWeekTotal');
+const statsBestDay = document.getElementById('statsBestDay');
+const statsAvgDay = document.getElementById('statsAvgDay');
+const statsWeekChange = document.getElementById('statsWeekChange');
+const statsBestDayDate = document.getElementById('statsBestDayDate');
+const taskCompletionChart = document.getElementById('taskCompletionChart');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFileInp = document.getElementById('importFileInp');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
 // Массив для хранения задач
 let history={};
@@ -59,6 +73,12 @@ if(history[selectedDay]==undefined){
         dayNotes : ""
     }
 }
+
+const successSound = new Audio('_success_bell.wav');
+const clickSound = new Audio('timerstart.wav');
+const alertSound = new Audio('alert.mp3');
+
+let isStreakAlertSent = false;
 
 let tasks = history[selectedDay].tasks;
 
@@ -108,6 +128,12 @@ function addTask() {
 function renderTasks() {
     tasksList.innerHTML = '';
 
+    const isToday = (selectedDay === getTodaykey());
+    const isEditable = (selectedDay >= getTodaykey()); 
+
+    const taskInputBlock = document.querySelector('.task-input');
+    taskInputBlock.style.display = isEditable ? 'flex' : 'none';
+
     let filteredTasks= [];
 
     if(currentFilter=='All'){
@@ -119,8 +145,8 @@ function renderTasks() {
     else{
         filteredTasks=tasks.filter(t=>t.completed==true);
     }
-
-    filteredTasks.forEach(task => {
+    if(isEditable){
+        filteredTasks.forEach(task => {
         const li = document.createElement('li');
         li.className='task-item';
         if(task.completed){
@@ -137,20 +163,24 @@ function renderTasks() {
                         <button class="delete-btn">Удалить</button>
                     </div>
                 </div>
+                ${isToday ? `
                 <div class="task-timer">
                     <span class="task-seconds">${greatTime(task.seconds)}</span>
                     <button class="start-btn">${task.isTrunning ? '❚❚' : '▶'}</button>
                     <button class="stop-btn">◼</button>
                 </div>
+                ` : ''}
             `;
             const editBtn=li.querySelector('.Edit-btn');
             editBtn.addEventListener('click',()=>editTask(task.id));
 
-            const startBtn=li.querySelector('.start-btn');
-            startBtn.addEventListener('click', ()=>startTask(task.id));
-            
-            const stopBtn=li.querySelector('.stop-btn');
-            stopBtn.addEventListener('click', ()=>stopTask(task.id));
+            if(isToday){
+                const startBtn=li.querySelector('.start-btn');
+                startBtn.addEventListener('click', ()=>startTask(task.id));
+                
+                const stopBtn=li.querySelector('.stop-btn');
+                stopBtn.addEventListener('click', ()=>stopTask(task.id));
+            }
         }
         else{
             li.innerHTML = `
@@ -171,6 +201,33 @@ function renderTasks() {
         deleteBtn.addEventListener('click',() => deleteTask(task.id));
 
         tasksList.appendChild(li);})
+    }
+    else{
+        filteredTasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = 'task-item';
+            if (task.completed) {
+                li.classList.add('completed');
+            } else {
+                li.classList.add('failed');
+            }
+
+            // Наполняем read-only шаблоном без кнопок и чекбоксов
+            li.innerHTML = `
+                <div class="task-main">
+                    <span class="task-status-icon">${task.completed ? '✔' : '✖'}</span>
+                    <span class="task-text">${task.text}</span>
+                </div>
+                <div class="task-timer-readonly">
+                    <span class="task-seconds">${greatTime(task.seconds)}</span>
+                </div>
+            `;
+
+            // Пушим «умный указатель» узла в контейнер списка на экране
+            tasksList.appendChild(li);
+        });
+    }
+    
 
     updateStats();
     
@@ -182,14 +239,17 @@ function startTask(id){
         task.isTrunning=true;
         task.startTime = Date.now();
         activeIntervals[task.id]=setInterval(() => {
-            task.seconds++;  // Прибавляем секунду каждую 1000 мс
-            saveTasks();     // Сохраняем новое время в память
-            renderTasks();   // Перерисовываем цифру на экране
+            task.seconds++;
+            task.startTime = Date.now(); // Обновляем startTime при каждом тике
+            saveTasks();
+            renderTasks();
         },1000);
+        clickSound.play();
     }
     else{
         task.isTrunning=false;
         clearInterval(activeIntervals[task.id]);
+        clickSound.play();
         saveTasks();
         renderTasks();
     }
@@ -198,13 +258,17 @@ function startTask(id){
 function initTimers() {
     tasks.forEach(task => {
         if (task.isTrunning) {
-            const passedsec=Math.floor((Date.now()-task.startTime)/1000);
-            task.seconds=passedsec;
-            activeIntervals[task.id]=setInterval(() => {
-                task.seconds++;  // Прибавляем секунду каждую 1000 мс
-                saveTasks();     // Сохраняем новое время в память
-                renderTasks();   // Перерисовываем цифру на экране
-            },1000);
+            const passedsec = Math.floor((Date.now() - task.startTime) / 1000);
+            task.seconds += passedsec;
+            task.startTime = Date.now();
+            saveTasks();
+
+            activeIntervals[task.id] = setInterval(() => {
+                task.seconds++;
+                task.startTime = Date.now(); // Обновляем startTime при каждом тике
+                saveTasks();
+                renderTasks();
+            }, 1000);
         }
     });
 }
@@ -255,6 +319,7 @@ function toggleTask(id){
     const task = tasks.find(t =>t.id===id);
     if(task){
         task.completed = !task.completed;
+        if(task.completed) successSound.play();
         saveTasks();
         renderTasks();
         updateDayStatus();
@@ -263,7 +328,10 @@ function toggleTask(id){
 }
 
 function deleteTask(id){
-    tasks=tasks.filter(t=>t.id!==id);
+    const index = tasks.findIndex(t => t.id === id);
+    if (index !== -1) {
+        tasks.splice(index, 1);
+    }
     updateDayStatus();
     saveTasks();
     renderTasks();
@@ -352,6 +420,9 @@ function updateFilterButtons(){
 }
 
 // События
+importFileInp.addEventListener('change', importData);
+importBtn.addEventListener('click', () => importFileInp.click());
+exportBtn.addEventListener('click',()=> exportData());
 tabTasksBtn.addEventListener('click',()=> switchTab('tasks'));
 tabStatsBtn.addEventListener('click',()=>switchTab('stats'));
 viewFullStatsBtn.addEventListener('click',()=>switchTab('stats'));
@@ -370,6 +441,101 @@ taskInput.addEventListener('keypress', (e) => {
         addTask();
     }
 });
+themeToggleBtn.addEventListener('click',()=>{
+    document.body.classList.toggle('light-theme');
+
+    const isLight=document.body.classList.contains('light-theme');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+});
+clearHistoryBtn.addEventListener('click', clearHistory);
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    
+    // Этот колбэк выполнится, когда файл полностью прочитается в RAM
+    reader.onload = function(e) {
+        try {
+            // e.target.result содержит сырой текст из файла JSON
+            const parsedData = JSON.parse(e.target.result);
+            
+
+            Object.keys(parsedData).forEach(dayKey => {
+            if (!history[dayKey]) {
+                // Если такого дня у нас еще нет, просто копируем его целиком
+                history[dayKey] = parsedData[dayKey];
+            } else {
+
+                history[dayKey].tasks = [...history[dayKey].tasks, ...parsedData[dayKey].tasks];
+                
+                // Суммируем зафиксированное время за этот день
+                history[dayKey].totalTime += parsedData[dayKey].totalTime;
+    
+                history[dayKey].status = parsedData[dayKey].status;
+            }
+        });
+            saveTasks();
+            if (!history[selectedDay]) {
+                history[selectedDay] = {
+                    tasks: [],
+                    totalTime: 0,
+                    status: "red",
+                    dayNotes: ""
+                };
+            }
+
+            // Теперь безопасно перенаправляем указатель
+            tasks = history[selectedDay].tasks;
+
+
+            renderCalendar();
+            renderTasks();
+            alert('Данные успешно импортированы!');
+        } catch (error) {
+            alert('Ошибка при чтении файла. Убедитесь, что это валидный JSON бэкапа.');
+        }
+    };
+
+    // Запускаем асинхронное чтение файла как текста
+    reader.readAsText(file);
+}
+
+
+function exportData(){
+    const datastr= JSON.stringify(history, null, 2);
+    const dataBlob=new Blob([datastr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `discipline-tracker-backup-${getTodaykey()}.json`;
+    a.click();
+    
+    // Освобождаем память (аналог delete или free() для URL-указателя)
+    URL.revokeObjectURL(url);
+}
+
+function clearHistory() {
+    if (confirm('Вы уверены? Это удалит ВСЮ историю безвозвратно!')) {
+        history = {};
+        history[currentDayKey] = {
+            tasks: [],
+            totalTime: 0,
+            status: "red",
+            dayNotes: ""
+        };
+        tasks = history[currentDayKey].tasks;
+        selectedDay = currentDayKey;
+
+        saveTasks();
+        renderCalendar();
+        renderTasks();
+        updateStats();
+        updateStreak();
+        alert('История полностью очищена!');
+    }
+}
 
 function saveNote() {
     const saveN=dayNotesInput.value.trim();
@@ -414,6 +580,8 @@ function renderCalendar(){
 }
 
 function changeDay(thatday) {
+    Object.values(activeIntervals).forEach(intervalId => clearInterval(intervalId));
+    activeIntervals = {}; // Обнуляем объект
     selectedDay=thatday;
     if(!history[selectedDay]){
         history[selectedDay]={
@@ -458,9 +626,120 @@ function switchTab(tabName){
     sidebarStatsPanel.classList.toggle('active', tabName === 'stats');
     contentTasksPanel.classList.toggle('active', tabName === 'tasks');
     contentStatsPanel.classList.toggle('active', tabName === 'stats');
+    if (tabName === 'stats') {
+        updateFullStats();
+    }
 }
 
+function updateFullStats(){
+    let totalTimeWeek = 0;
+    let maxSeconds=0;
+    let bestDay="—"
+    
+    for(let i=0;i<7;i++){
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dayKey = d.toISOString().split('T')[0];
+        if(history[dayKey]){
+            totalTimeWeek+=history[dayKey].totalTime;
+            if(history[dayKey].totalTime>maxSeconds){
+                maxSeconds=history[dayKey].totalTime;
+                bestDay=dayKey;
+            }
+        }
+    }
+
+    let prevWeekSeconds = 0;
+    for (let i = 7; i < 14; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dayKey = d.toISOString().split('T')[0];
+        if (history[dayKey]) {
+            prevWeekSeconds += history[dayKey].totalTime;
+        }
+    }
+
+    let diffWeeks=totalTimeWeek-prevWeekSeconds;
+    let diffsign="+";
+    if(diffWeeks<0){
+        diffsign="-";
+    }
+
+    let avg=Math.floor(totalTimeWeek/7);
+
+    statsWeekChange.textContent=diffsign+greatTime(Math.abs(diffWeeks));
+    sidebarWeekAvg.textContent=greatTime(avg);
+    statsAvgDay.textContent=greatTime(avg);
+    sidebarBestDay.textContent=greatTime(maxSeconds);
+    statsBestDay.textContent=greatTime(maxSeconds);
+    statsBestDayDate.textContent=bestDay;
+    sidebarWeekTotal.textContent=greatTime(totalTimeWeek);
+    statsWeekTotal.textContent=greatTime(totalTimeWeek);
+
+    taskCompletionChart.innerHTML = '';
+
+    for (let i = 6; i >= 0; i--){
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dayKey = d.toISOString().split('T')[0];
+        const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' });
+        let completedtask=0;
+        let totaltask=0;
+        if(history[dayKey]){
+            history[dayKey].tasks.forEach(task=>{
+                if(task.completed){
+                    completedtask++;
+                }
+                totaltask++;
+            })
+        }
+        let percentage=0;
+        if(totaltask>0){
+            percentage=Math.floor((completedtask/totaltask)*100);
+        }
+        // СОЗДАНИЕ И ОТРИСОВКА БАРА:
+        const barWrapper = document.createElement('div');
+        barWrapper.className = 'chart-bar-wrapper';
+
+        barWrapper.innerHTML = `
+            <div class="chart-bar-label">${dayName}</div>
+            <div class="chart-bar" style="--bar-width: ${percentage}%">
+                <span class="chart-bar-percentage">${percentage}%</span>
+            </div>
+        `;
+
+        taskCompletionChart.appendChild(barWrapper);
+    }
+    
+
+}
+
+function checkStreakDanger(){
+    const thatHour = new Date().getHours();
+    if(thatHour < 23 && isStreakAlertSent) {
+        isStreakAlertSent = false;
+    }
+    if(thatHour>=23 && history[currentDayKey].status=="red" && !isStreakAlertSent){
+        if (Notification.permission === "granted") {
+            new Notification("🔥 Дисциплина под угрозой!", {
+                body: "Уже поздно, а у тебя горит красный день. Сделай хотя бы одну задачу!",
+                tag: "streak-alert"
+            });
+        }
+        isStreakAlertSent=true;
+        alertSound.play();
+    }
+}
+
+if (Notification.permission !== "denied") {
+        Notification.requestPermission();
+    }
+setInterval(checkStreakDanger,300000);
+
 // Инициализация
+if(localStorage.getItem('theme') === 'light'){
+    document.body.classList.add('light-theme');
+}
 dayNotesInput.value = history[selectedDay].dayNotes;
 updateDate();
 initTimers();
